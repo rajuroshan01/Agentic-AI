@@ -3,36 +3,48 @@ from typing import TypedDict
 from Agent.GeneralAgent import general_agent
 from Agent.StudyAgent import study_agent
 from Agent.TravelAgent import travel_agent
+from LLM.llm import llm
+from ContextMemory.context import memory
+from langchain_core.messages import HumanMessage, AIMessage
 
 class AgentState(TypedDict):
     user_input: str
     intent: str
     response: str
+    messages : list
 
 # Orchestrator
 def orchestrator(state):
-    text = state["user_input"].lower()
+    if "messages" not in state:
+        state["messages"] = []
+    state["messages"].append(HumanMessage(content=state["user_input"]))
+    
+    prompt = f"""
+    Classify the user query into one of these:
+    - travel
+    - study
+    - general
 
-    if "trip" in text:
-        state["intent"] = "travel"
-    elif "aws" in text:
-        state["intent"] = "study"
-    else:
-        state["intent"] = "general"
+    User Query: {state["user_input"]}
 
+    Return only one word.
+
+    """
+    response = llm.invoke(prompt)
+    state["intent"] = response.content.strip().lower()
     return state
 
 # Agents
-def travel_agent(state):
-    state["response"] = "Here is your travel plan ✈️"
+def travelagent(state):
+    state = travel_agent(state)
     return state
 
-def study_agent(state):
-    state["response"] = "AWS is a cloud platform ☁️"
+def studyagent(state):
+    state = study_agent(state)
     return state
 
-def general_agent(state):
-    state["response"] = "How can I help you?"
+def generalagent(state):
+    state = general_agent(state)
     return state
 
 # Router
@@ -43,9 +55,9 @@ def router(state):
 builder = StateGraph(AgentState)
 
 builder.add_node("orchestrator", orchestrator)
-builder.add_node("travel", travel_agent)
-builder.add_node("study", study_agent)
-builder.add_node("general", general_agent)
+builder.add_node("travel", travelagent)
+builder.add_node("study", studyagent)
+builder.add_node("general", generalagent)
 
 builder.set_entry_point("orchestrator")
 
@@ -59,5 +71,5 @@ builder.add_conditional_edges(
     }
 )
 
-graph = builder.compile()
+graph = builder.compile(checkpointer=memory)
 

@@ -1,10 +1,16 @@
-def travel_agent(state: AgentState):
+from LLM.llm import llm
+from langchain_core.messages import HumanMessage, AIMessage
+def travel_agent(state):
     prompt = f"""
-    You are a travel planner.
+    Memory = {state["messages"]}
+    You are a travel planner. Analyse the Memory and respond the travel related query.
 
-    User: {state['user_input']}
-    Give a helpful travel plan.
+    Question is last element of the Memory array.
     """
+    res = llm.invoke(prompt).content
 
-    state["response"] = llm.predict(prompt)
+    print("Prompttttt>>>>>>>>>>>>",prompt)
+    print(f"response...................{res}")
+    state["response"] = res
+    state["messages"].append(AIMessage(content=res))
     return state
