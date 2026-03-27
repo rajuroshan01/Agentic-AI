@@ -6,7 +6,7 @@ from Agent.TravelAgent import travel_agent
 from LLM.llm import llm
 from ContextMemory.context import memory
 from langchain_core.messages import HumanMessage, AIMessage
-from langgraph.prebuilt import ToolNode
+from langgraph.prebuilt import ToolNode,tools_condition
 from Tools.toolsetup import tools
 
 tool_node = ToolNode(tools)
@@ -60,11 +60,21 @@ builder = StateGraph(AgentState)
 builder.add_node("orchestrator", orchestrator)
 builder.add_node("travel", travelagent)
 builder.add_node("study", studyagent)
-builder.add_node("tools",tool_node)
-
 builder.add_node("general", generalagent)
-builder.add_edge("tools", "study")
+builder.add_node("tools", tool_node)
 
+# This is the magic: it checks if the last message has 'tool_calls'
+builder.add_conditional_edges(
+    "study",
+    tools_condition, 
+    {
+        "tools": "tools",
+        "__end__": "__end__" 
+    }
+)
+
+# After tools run, they should go back to the agent to summarize the result
+builder.add_edge("tools", "study")
 builder.set_entry_point("orchestrator")
 
 builder.add_conditional_edges(
